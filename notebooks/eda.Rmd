@@ -64,6 +64,25 @@ count(vf, district, ca_partyaffiliation) %>%
 
 03 heavily dem (`r 43391 / (43991 + 21990)`) while 11 more split (`r 27584 / (27584 + 20834)`)
 
+political activity of population
+
+```{r}
+
+qplot(vf$es_genrate, binwidth = .05)
+```
+
+```{r}
+count(vf, es_anyprimary)
+```
+
+```{r}
+qplot(vf$sy_gunscore, binwidth = .01)
+```
+
+```{r}
+qplot(vf$sy_voteprop2012, binwidth = 1)
+```
+
 ## comparing demos to outcome
 
 ```{r}
