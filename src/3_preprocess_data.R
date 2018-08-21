@@ -1,6 +1,7 @@
 library(tidyverse)
 library(tidycensus)
 library(stringr)
+library(sf)
 
 source(here::here("src/helper_funs.R"))
 
@@ -10,15 +11,51 @@ source(here::here("src/helper_funs.R"))
 # 3. recodes variables to prepare for modeling
 # 4. splits data into test and train
 
+# functions ------------------------
+
+process_acs <- function(dat) {
+  
+  dat <- dat %>% 
+    st_set_geometry(NULL) %>% 
+    as_data_frame() %>% 
+    rename(census_fips = GEOID)
+  
+  if(any(grepl("summary_est", names(dat)))) {
+    
+    dat %>% 
+      mutate(pct = estimate / summary_est) %>% 
+      select(census_fips, variable, pct) %>% 
+      spread(variable, pct)
+    
+  } else {
+    
+    dat %>% 
+      select(census_fips, variable, estimate) %>% 
+      spread(variable, estimate)
+  }
+}
+
 # import -----------------------------
 
-files <- list.files(here::here("data/raw"))
+files <- list.files(here::here("data/raw"), pattern = "*.txt")
 
 files %>% 
   set_names() %>% 
   map(
     ~ read_tsv(
       here::here("data/raw/", .)
+    )
+  ) %>% 
+  fix_env_names() %>% 
+  list2env(envir = .GlobalEnv)
+
+acs_files <- list.files(here::here("data/acs"), pattern = "*tract.rds")
+
+acs_files %>% 
+  set_names() %>% 
+  map(
+    ~ read_rds(
+      here::here("data/acs/", .)
     )
   ) %>% 
   fix_env_names() %>% 
@@ -42,6 +79,23 @@ vf <- left_join(vf, members, by = c("state", "test_id"))
 vf <- vf %>% 
   mutate(
     afl_mem = if_else(!is.na(member_type_status), 1L, 0L)
+  )
+
+# add in acs data
+educ <- process_acs(educ_tract)
+race <- process_acs(race_tract)
+income <- process_acs(income_tract)
+
+vf <- vf %>% 
+  left_join(educ, by = "census_fips") %>% 
+  left_join(race, by = "census_fips") %>% 
+  left_join(income, by = "census_fips")
+
+# transfrm some variables
+
+vf <- vf %>% 
+  mutate(
+    income_change = med_hh_inc - ac_medianhhincome
   )
 
 # create modeling data  ----------------------

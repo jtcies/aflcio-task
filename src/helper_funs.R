@@ -5,6 +5,7 @@
 fix_env_names <- function(x) {
   names(x) <- str_extract(names(x), "[^/]+$")
   names(x) <- str_replace(names(x), "\\.txt", "")
+  names(x) <- str_replace(names(x), "\\.rds", "")
   names(x) <- str_replace(names(x), "CO_membership", "members")
   names(x) <- str_replace(names(x), "CO_SD_03_voterfile", "vf_03")
   names(x) <- str_replace(names(x), "CO_SD_11_voterfile", "vf_11")

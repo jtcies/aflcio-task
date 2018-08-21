@@ -11,6 +11,6 @@ files$name %>%
   map(
     ~drive_download(
       paste0("AFL-CIO/Test Materials/", .), 
-      path = here::here("data/raw/", .),
+      path = here::here("data/raw", .),
       overwrite = TRUE)
   )

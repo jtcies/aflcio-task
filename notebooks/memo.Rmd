@@ -1,0 +1,27 @@
+---
+title: "Memo"
+author: "Joe Ciesielski"
+date: "8/21/2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Purpose
+
+## Background and literature
+
+### The recall
+
+### Fundamental models
+
+## Model
+
+## Conclusion and next steps
+
+
+## Appendix A: White Education Data by County (with code)
+
+## Appendix B: Methodology and model metrics

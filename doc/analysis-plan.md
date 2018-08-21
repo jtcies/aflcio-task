@@ -24,7 +24,9 @@
     - alternative is to create parsimonious model that explains why folks voted the way they did
   - evaluation
     - accuracy and loss equally important
-      - want to make sure that we don't miss anyone who could oppose recall and we don't 
+      - want to make sure that we don't miss anyone who could oppose recall and we don't
+- issues
+  - will need to impute some of the 2013 census data because fips is missing in the voterfile
 
 ## Products
 
