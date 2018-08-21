@@ -1,0 +1,89 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+library(tidyverse)
+library(here)
+
+vf <- read_csv(here::here("data/processed/voterfile_combined.csv"))
+train <- read_csv(here::here("data/processed/training_data.csv"))
+# only reading in responses to determine overall response rates
+# only training data will be used when comparing to other variables
+resp <- read_csv(here::here("data/processed/all_responses.csv"))
+
+```
+
+Breakdown of responses, how many with no response
+
+```{r}
+left_join(vf, resp, by = c("state", "test_id")) %>% 
+  count(recall_vote, sort = TRUE)
+```
+
+Yes outnumber the nos, but we have a high rate of don't know: `r nrow(resp %>% filter(recall_vote == "DK")) / nrow(resp)`
+
+how many people do we drop from the responses
+
+```{r}
+anti_join(resp, vf, by = c("state", "test_id")) %>% 
+  count(state, sort = TRUE) %>% 
+  mutate(sum(n))
+```
+
+298 are dropped, 38 because they are out of state
+
+## breakdown of demographics in the district
+
+missingness in the voterfile
+
+```{r}
+
+miss <- lapply(vf, function(x) sum(is.na(x)))
+
+miss[miss > 0]
+
+```
+
+11 missing age, 9 missing household age, quite a few missing modeled household income, NA for hh_children does not mean 0 here, density cluster also missing quite a bit; could this be filled in by census tract? 
+
+party affiliation
+
+```{r}
+
+count(vf, ca_partyaffiliation, sort = TRUE)
+```
+
+```{r}
+
+count(vf, district, ca_partyaffiliation) %>% 
+  spread(district, n)
+
+```
+
+03 heavily dem (`r 43391 / (43991 + 21990)`) while 11 more split (`r 27584 / (27584 + 20834)`)
+
+## comparing demos to outcome
+
+```{r}
+train %>% 
+  group_by(ca_partyaffiliation) %>% 
+  count(recall_vote, sort = TRUE) %>% 
+  mutate(pct_party = n / sum(n))
+
+```
+
+Reps more strongly favor recall than Dems oppose; NPA also more strongly support recall; key question is what to do with the don't knows. 
+
+responses by district
+
+```{r}
+train %>% 
+  group_by(district) %>% 
+  count(recall_vote, sort = TRUE) %>% 
+  mutate(dist_pct = n / sum(n))
+```
+
+Despite district 3 having higher dem pct, 1 point in favor of recall with less uncertainty
+
