@@ -24,12 +24,17 @@ Text of measure
 
 ## Forecasting elections
 
+### fundamental models
+
 1. Fundamental models for forecasting elections [^1]
+
     - most meaningful variables are presidental approval ratings and economic indicators
     - economic indicators best as trends
       - for example: personal income growth
       - state unemployment rates not statistically significant
     - candidates of the president's party suffer a penalty during midterms
+
+2. 
 
 [^1]: Hummel, P., & Rothschild, D. (2014). Fundamental models for forecasting elections at the state level. Electoral Studies, 35, 123-139.
 [^2]: https://www.denverpost.com/2013/09/10/colorado-senate-president-john-morse-state-sen-angela-giron-ousted/
