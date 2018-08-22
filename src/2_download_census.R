@@ -25,7 +25,8 @@ race_vars <- c(
   asian = "B02001_005",
   pacific_islander = "B02001_006",
   other_race = "B02001_007",
-  two_or_more_races = "B02001_008"
+  two_or_more_races = "B02001_008",
+  hispanic = "B03001_002"
 )
   
 race_summary <- "B02001_001"

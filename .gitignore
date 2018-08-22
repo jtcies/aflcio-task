@@ -3,6 +3,6 @@
 .RData
 .Ruserdata
 .httr-oauth
-*.csv
-*.rds
-*.txt
+data/raw/
+data/acs/
+data/processed

@@ -61,6 +61,10 @@ acs_files %>%
   fix_env_names() %>% 
   list2env(envir = .GlobalEnv)
 
+pop_density <- "data/external/Population_Density_Census_tract.csv" %>% 
+  here::here() %>% 
+  read_csv()
+
 # preprocess -------------------------
 
 # add variable for district
@@ -91,11 +95,26 @@ vf <- vf %>%
   left_join(race, by = "census_fips") %>% 
   left_join(income, by = "census_fips")
 
+# impute missing income data because of fips
+# want to use income change in the final model, will use more recent
+# versions of others
+
+acs_income <- vf %>% 
+  select(census_fips, ac_medianhhincome, med_hh_inc) %>% 
+  filter(!is.na(med_hh_inc)) %>% 
+  distinct()
+
+inc_model <- lm(med_hh_inc ~ ac_medianhhincome, data = acs_income)
+
+missing_fips <- is.na(vf$med_hh_inc)
+
+vf[missing_fips, ] <- predict(inc_model, vf[missing_fips, ])
+
 # transfrm some variables
 
 vf <- vf %>% 
   mutate(
-    income_change = med_hh_inc - ac_medianhhincome
+    inc_change = med_hh_inc - ac_medianhhincome
   )
 
 # create modeling data  ----------------------

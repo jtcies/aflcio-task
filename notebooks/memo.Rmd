@@ -19,8 +19,9 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## Model
 
-## Conclusion and next steps
+### Variables included
 
+## Conclusion and next steps
 
 ## Appendix A: White Education Data by County (with code)
 
