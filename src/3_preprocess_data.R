@@ -61,9 +61,14 @@ acs_files %>%
   fix_env_names() %>% 
   list2env(envir = .GlobalEnv)
 
-pop_density <- "data/external/Population_Density_Census_tract.csv" %>% 
+pop_density <- "data/external/Population_Density_Census_Tracts.csv" %>% 
   here::here() %>% 
-  read_csv()
+  read_csv() %>% 
+  select(
+    census_fips = Tract_FIPS,
+    pop_sqmi = Population_Density_PerLandSquareMile
+  ) %>% 
+  mutate(census_fips = as.character(census_fips))
 
 # preprocess -------------------------
 
@@ -93,7 +98,8 @@ income <- process_acs(income_tract)
 vf <- vf %>% 
   left_join(educ, by = "census_fips") %>% 
   left_join(race, by = "census_fips") %>% 
-  left_join(income, by = "census_fips")
+  left_join(income, by = "census_fips") %>% 
+  left_join(pop_density, by = "census_fips")
 
 # impute missing income data because of fips
 # want to use income change in the final model, will use more recent

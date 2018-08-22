@@ -64,6 +64,8 @@ income_vars <- c(
  med_hh_inc = "B19013_001" 
 )
 
+total_pop <- "B00001_001"
+
 # download -------------------------
 
 race_tract <- download_acs(race_vars, race_summary, "tract")
@@ -87,6 +89,12 @@ white_educ_female <- download_acs(
 
 white_educ_county <- bind_rows(white_educ_male, white_educ_female)
 
+pop_tract <- download_acs(total_pop, geo = "tract")
+
+# determine population density for each census tract
+
+
+
 # write ------------------------
 # list the data frames and write recursively
 dfs <- mget(ls(pattern = "tract|county"))
@@ -94,3 +102,5 @@ dfs <- mget(ls(pattern = "tract|county"))
 # write as rds to perserve geometry
 dfs %>% 
   iwalk(~write_rds(.x, here::here("data/acs", paste0(.y, ".rds"))))
+
+
