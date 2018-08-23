@@ -140,7 +140,7 @@ state house district has a strong relationship with race
 
 pca_comp <- num_plots %>% 
   select(-recall_prob) %>% 
-  filter(!is.na(hh_children), !is.na(less_than_hsg))
+  filter(!is.na(hh_children), !is.na(bach_or_higher))
 
 dat_pca <- prcomp(pca_comp, center = TRUE, scale. = TRUE)
 
@@ -178,5 +178,9 @@ tidied_pca %>%
   ggplot(aes(reorder(.rownames, contribution), contribution)) +
     geom_col() +
     coord_flip()
+```
+
+```{r}
+
 ```
 

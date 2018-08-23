@@ -64,7 +64,7 @@ roc_plot <- function(actuals, predictions) {
   list(roc_plot, cost_plot, summary %>% as.data.frame())
 }
 
-rmse <- function(pred, actual) {
+rmse <- function(actual, pred) {
   
   sqrt(mean((pred - actual) ^ 2))
   

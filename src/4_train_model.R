@@ -20,16 +20,8 @@ set.seed(2018)
 model <- glm(
   factor(recall_binary) ~ 
     ca_age + 
-    party + 
-    hh_white + 
-    hh_totalpersons +
-    less_than_hsg + 
-    log_density +
-    inc_change +
-    white +
-    afl_mem +
     sy_ideologymodel +
-    sy_gunscore,
+    party,
   data = train,
   family = "binomial"
 )
