@@ -1,5 +1,6 @@
 library(tidyverse)
 library(tidycensus)
+library(units)
 
 # download data from the acs 2013 5-year estimates for race, education,
 # and income
@@ -93,7 +94,9 @@ pop_tract <- download_acs(total_pop, geo = "tract")
 
 # determine population density for each census tract
 
+pop_tract$area <- set_units(st_area(pop_tract$geometry), "km^2")
 
+pop_tract$pop_density <- pop_tract$estimate / pop_tract$area
 
 # write ------------------------
 # list the data frames and write recursively

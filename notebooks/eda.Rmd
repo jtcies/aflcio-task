@@ -4,22 +4,24 @@ output: html_notebook
 ---
 
 ```{r}
-library(tidyverse)
 library(here)
+library(corrplot)
+library(ggbiplot)
+library(broom)
+library(tidyverse)
 
 vf <- read_csv(here::here("data/processed/voterfile_combined.csv"))
 train <- read_csv(here::here("data/processed/training_data.csv"))
 # only reading in responses to determine overall response rates
 # only training data will be used when comparing to other variables
 resp <- read_csv(here::here("data/processed/all_responses.csv"))
-
 ```
 
 Breakdown of responses, how many with no response
 
 ```{r}
 left_join(vf, resp, by = c("state", "test_id")) %>% 
-  count(recall_vote, sort = TRUE)
+  dplyr::count(recall_vote, sort = TRUE)
 ```
 
 Yes outnumber the nos, but we have a high rate of don't know: `r nrow(resp %>% filter(recall_vote == "DK")) / nrow(resp)`
@@ -28,7 +30,7 @@ how many people do we drop from the responses
 
 ```{r}
 anti_join(resp, vf, by = c("state", "test_id")) %>% 
-  count(state, sort = TRUE) %>% 
+  dplyr::count(state, sort = TRUE) %>% 
   mutate(sum(n))
 ```
 
@@ -52,12 +54,12 @@ party affiliation
 
 ```{r}
 
-count(vf, ca_partyaffiliation, sort = TRUE)
+dplyr::count(vf, ca_partyaffiliation, sort = TRUE)
 ```
 
 ```{r}
 
-count(vf, district, ca_partyaffiliation) %>% 
+dplyr::count(vf, district, ca_partyaffiliation) %>% 
   spread(district, n)
 
 ```
@@ -72,7 +74,7 @@ qplot(vf$es_genrate, binwidth = .05)
 ```
 
 ```{r}
-count(vf, es_anyprimary)
+dplyr::count(vf, es_anyprimary)
 ```
 
 ```{r}
@@ -88,7 +90,7 @@ qplot(vf$sy_voteprop2012, binwidth = 1)
 ```{r}
 train %>% 
   group_by(ca_partyaffiliation) %>% 
-  count(recall_vote, sort = TRUE) %>% 
+  dplyr::count(recall_vote, sort = TRUE) %>% 
   mutate(pct_party = n / sum(n))
 
 ```
@@ -100,9 +102,81 @@ responses by district
 ```{r}
 train %>% 
   group_by(district) %>% 
-  count(recall_vote, sort = TRUE) %>% 
+  dplyr::count(recall_vote, sort = TRUE) %>% 
   mutate(dist_pct = n / sum(n))
 ```
 
 Despite district 3 having higher dem pct, 1 point in favor of recall with less uncertainty
+
+Plotting some of the relationships
+
+```{r}
+num_plots <- train %>% 
+  select_if(is.numeric) %>% 
+  select(-starts_with("ac"), -1, -3, -5, -6, -recall_binary) %>% 
+  mutate(log_density = log(pop_density))
+
+correlations <- cor(num_plots, use = "pairwise.complete.obs")
+
+corrplot(correlations)
+
+```
+
+it looks like we can caputre more of the variable with three sections:
+
+- household info
+- acs info
+- ideology
+
+some of the modeled variables are correlated with acs info
+
+In addition, recall most strongly correlated with partisan vote score and ideaology, so probably ony need one of those
+
+state house district has a strong relationship with race
+
+## PCA
+
+```{r}
+
+pca_comp <- num_plots %>% 
+  select(-recall_prob) %>% 
+  filter(!is.na(hh_children), !is.na(less_than_hsg))
+
+dat_pca <- prcomp(pca_comp, center = TRUE, scale. = TRUE)
+
+summary(dat_pca)
+```
+
+
+```{r}
+
+tidied_pca <- broom::tidy(dat_pca$rotation) %>% 
+  gather(pc, contribution, PC1:PC36)
+
+tidied_pca %>% 
+  filter(pc == "PC1") %>% 
+  ggplot(aes(reorder(.rownames, contribution), contribution)) +
+    geom_col() +
+    coord_flip()
+```
+
+again, it looks like houshold info and acs data on education are contributing to the most amount of variation
+
+```{r}
+tidied_pca %>% 
+  filter(pc == "PC2") %>% 
+  ggplot(aes(reorder(.rownames, contribution), contribution)) +
+    geom_col() +
+    coord_flip()
+```
+
+race starts to play a higher role here
+
+```{r}
+tidied_pca %>% 
+  filter(pc == "PC3") %>% 
+  ggplot(aes(reorder(.rownames, contribution), contribution)) +
+    geom_col() +
+    coord_flip()
+```
 

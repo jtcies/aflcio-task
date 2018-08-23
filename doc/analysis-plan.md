@@ -37,3 +37,4 @@
 ## next steps
 
 - can't get presidential approval ratings, but would incorporate polling that included that information into final model
+- incorporate voter likelihood into the model

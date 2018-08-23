@@ -21,14 +21,20 @@ process_acs <- function(dat) {
     rename(census_fips = GEOID)
   
   if(any(grepl("summary_est", names(dat)))) {
-    
+    # for summary statistics
     dat %>% 
       mutate(pct = estimate / summary_est) %>% 
       select(census_fips, variable, pct) %>% 
       spread(variable, pct)
     
-  } else {
+  } else if(any(grepl("pop_density", names(dat)))) {
+    # for pop density
+    dat %>% 
+      mutate(pop_density = as.numeric(pop_density)) %>% 
+      select(census_fips, pop_density)
     
+  } else {
+    # for income
     dat %>% 
       select(census_fips, variable, estimate) %>% 
       spread(variable, estimate)
@@ -61,15 +67,6 @@ acs_files %>%
   fix_env_names() %>% 
   list2env(envir = .GlobalEnv)
 
-pop_density <- "data/external/Population_Density_Census_Tracts.csv" %>% 
-  here::here() %>% 
-  read_csv() %>% 
-  select(
-    census_fips = Tract_FIPS,
-    pop_sqmi = Population_Density_PerLandSquareMile
-  ) %>% 
-  mutate(census_fips = as.character(census_fips))
-
 # preprocess -------------------------
 
 # add variable for district
@@ -94,39 +91,79 @@ vf <- vf %>%
 educ <- process_acs(educ_tract)
 race <- process_acs(race_tract)
 income <- process_acs(income_tract)
+population <- process_acs(pop_tract)
+
 
 vf <- vf %>% 
   left_join(educ, by = "census_fips") %>% 
   left_join(race, by = "census_fips") %>% 
   left_join(income, by = "census_fips") %>% 
-  left_join(pop_density, by = "census_fips")
+  left_join(population, by = "census_fips")
 
-# impute missing income data because of fips
+# impute missing income, race, and educ data because of fips
 # want to use income change in the final model, will use more recent
 # versions of others
 
-acs_income <- vf %>% 
-  select(census_fips, ac_medianhhincome, med_hh_inc) %>% 
+missing_fips <- is.na(vf$med_hh_inc) # those missing 13 acs data
+
+acs_data <- vf %>% 
+  select(census_fips, ac_medianhhincome, med_hh_inc, white, ac_pctwhite,
+         less_than_hsg, ac_pctgraduatedegree) %>% 
   filter(!is.na(med_hh_inc)) %>% 
   distinct()
 
-inc_model <- lm(med_hh_inc ~ ac_medianhhincome, data = acs_income)
+inc_model <- lm(med_hh_inc ~ ac_medianhhincome, data = acs_data)
 
-missing_fips <- is.na(vf$med_hh_inc)
+race_model <- lm(white ~ ac_pctwhite, data = acs_data)
 
-vf[missing_fips, ] <- predict(inc_model, vf[missing_fips, ])
+educ_model <- lm(less_than_hsg ~ ac_pctgraduatedegree, data = acs_data)
+
+vf[missing_fips, "med_hh_inc"] <- predict(inc_model, vf[missing_fips, ])
+
+vf[missing_fips, "white"] <- predict(race_model, vf[missing_fips, ])
+
+vf[missing_fips, "less_than_hsg"] <- predict(educ_model, vf[missing_fips, ])
+
+# impute missing pop desnity: median of district (long right tail)
+
+vf <- vf %>% 
+  group_by(district) %>% 
+  mutate(
+    pop_density = case_when(
+      is.na(pop_density) ~ median(pop_density, na.rm = TRUE),
+      TRUE ~ pop_density
+    )
+  ) %>% 
+  ungroup()
 
 # transfrm some variables
 
 vf <- vf %>% 
   mutate(
-    inc_change = med_hh_inc - ac_medianhhincome
+    inc_change = med_hh_inc - ac_medianhhincome,
+    log_density = log(pop_density),
+    party = case_when(
+      ca_partyaffiliation == "DEM" ~ "DEM",
+      ca_partyaffiliation == "REP" ~ "REP",
+      TRUE ~ "other"
+    )
   )
 
 # create modeling data  ----------------------
 
 # merge thsoe we have repsones from for modeling
-model_dat <- inner_join(resp, vf, by = c("state", "test_id", "district")) 
+model_dat <- inner_join(resp, vf, by = c("state", "test_id", "district")) %>% 
+  mutate(
+    recall_prob = case_when(
+      recall_vote == "Yes" ~ 0,
+      recall_vote == "No" ~ 1,
+      recall_vote == "DK" ~ 0.5
+    ),
+    recall_binary = case_when(
+      recall_vote == "DK" ~ NA_integer_,
+      TRUE ~ as.integer(recall_prob)
+    )
+  )
 
 set.seed(2018)
 # 80/20 split
