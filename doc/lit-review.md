@@ -34,7 +34,9 @@ Text of measure
       - state unemployment rates not statistically significant
     - candidates of the president's party suffer a penalty during midterms
 
-2. 
+2. gun reform: http://journals.plos.org/plosone/article?id=10.1371/journal.pone.0077552
+
+http://www.people-press.org/2013/03/12/why-own-a-gun-protection-is-now-top-reason/
 
 [^1]: Hummel, P., & Rothschild, D. (2014). Fundamental models for forecasting elections at the state level. Electoral Studies, 35, 123-139.
 [^2]: https://www.denverpost.com/2013/09/10/colorado-senate-president-john-morse-state-sen-angela-giron-ousted/

@@ -48,7 +48,7 @@ roc_plot <- function(actuals, predictions) {
       f1 = (2 * (prec * recall)) / (prec + recall)
     )
   
-  auc_label <- as.character(pROC::auc(actuals, predictions))
+  auc_label <- as.character(round(pROC::auc(actuals, predictions), 3))
   max_cutoff <- summary[which.max(summary$f1), ][["cutoff"]]
   
   roc_plot <- ggplot(summary, aes(x = fpr, y = tpr)) +

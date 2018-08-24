@@ -2,27 +2,124 @@
 title: "Memo"
 author: "Joe Ciesielski"
 date: "8/21/2018"
-output: html_document
+output:
+  pdf_document: 
+    latex_engine: xelatex
+    sansfont: Open Sans
+  html_document: 
+    css: ../src/jtc_style.css
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(here)
+library(tidycensus)
+source(here::here("src/helper_funs.R"))
+source(here::here("src/jtc_theme.R"))
+
+vf <- read_csv(here::here("data/processed/voterfile_combined.R"))
+model <- read_rds(here::here("models/model.rds"))
+test <- read_csv(here::here("data/processed/testing_data.csv"))
+resp <- read_csv(here::here("data/processed/all_repsonses.csv"))
+
+# get geometry for mapping
+tract_geom <- get_acs("tract", state = "CO", geometry = TRUE, year = 2009) %>% 
+  rename(census_fips = GEOID)
+
+optimal_cutoff <- 0.5
+
+vf <- left_join(vf, resp, by = c("state", "test_id")) %>% 
+  mutate(
+    recall_oppose_prob = predict(model, ., "prob")[, 2],
+    recall_oppose_prob = case_when(
+      recall_vote == "Yes" ~ 0L,
+      reall_vote == "No" ~ 1L,
+      TRUE ~ recall_predict
+    ),
+    recall_predict = if_else(recall_oppose_prob >= optimal_cutoff, 1L, 0L)
+  )
+
 ```
 
 ## Purpose
 
+In 2013, two state senators from Colorado were put up for a vote after a series of gun reform legislation. The purpose of this excercise was to predict voter behavior in that recall vote. 
+
 ## Background and literature
+
+
 
 ### The recall
 
-### Fundamental models
+### Literature
+
+Fundamental election models are those that use data other than direct polling to predict the outcome of the elections. Fundamental models are analogous to the kind of model that we will build in this situation. In our case, the polling data will represent our outcome variable, whether or not someone opposes the recall. The only data availabe as inputs to our model are demographics of individuals, housholds, and neighborhoods. 
+
+Fundamental models can be comparable to those that rely on polling data. These models are most accurate in forecasting elections when they incorporate economic trends, biographical information about the candidate, and general feelings toward the sitting president. Specifically, state income growth, the previous electoral experience of a candidate, and presidential approval ratings are all statistically significant when predicting the outcome of elections for U.S. Seante at the state level. 
+
+Because the elections here are primarily motivated by gun reform legislation, it  is helpful to examien factors which influence attitudes toward gun reform. Research from Pew in 2013 found, unsurprisingly, that views on guns and gun reform split sharply across party lines and gun ownership. O'Brien et al. alos found that views on race significantly predicted stances on gun reform. 
 
 ## Model
 
+```{r}
+
+
+
+```
+
+The map above shows the predicted share of voters who will oppose the recall by census tract. 
+
 ### Variables included
 
+Inital principal componnent analysis and visual exploration of the data indicated three priarmy sources of variation in the data: individual characteristics (such as age, gender, and part affiliation), household characteristics, and neighborhood characteristics. The following variables were included in the final model in an attempt to capture as much variation as possible without creating an overly complex model:
+
+#### Individual characteristics
+
+- age (ca_age)
+- race (ca_age)
+- modeled probability of progressive belefs (sy_ideologymodeldem) 
+- dummy variables for Repubican or Democrat (rep, dem)
+- any individual or household membership with AFL-CIO (afl_mem)
+- whether the indidivdual's gender matched the gender of the candidate up for recall (gender_match)
+- modeled probability of gun ownership (sy_gunscore)
+
+#### Household characteristics
+
+- number of white individuals in the household (hh_white)
+- average age of the householde (hh_ageavg) 
+- total persons living in the household (hh_totalpersons)
+
+#### Neighborhood characteristics
+
+- percent of census tract with a high school diploma or less (tract_pct_hsg_or_less)
+- percent of census tract residents who are Hispanic or Latino (tract_pct_hispanic)
+- dummy variable for state senate district (dist03)
+
+The chart below shows the relative importance of each of the varibles in calculting the final probability that a voter will oppose the election.
+
+```{r}
+ggplot(varImp(model))
+```
+
+
+### Model performance
+
+```{r}
+roc_plot(test$recall_binary, predict(model, test, "prob"))[[1]]
+```
+
+The chart above shows an receiver operating characteristic (ROC) plot comparing our model to vote probabilities based soley on party affiliation. 
+
+
 ## Conclusion and next steps
+
+There are number of ways that this model could be improved. 
 
 ## Appendix A: White Education Data by County (with code)
 
 ## Appendix B: Methodology and model metrics
+
+- using 2009 census tracts
+- optimal cutoff score

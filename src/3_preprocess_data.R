@@ -16,6 +16,8 @@ source(here::here("src/helper_funs.R"))
 process_acs <- function(dat) {
   
   dat <- dat %>% 
+    st_set_geometry(NULL) %>% 
+    as_data_frame() %>% 
     rename(census_fips = GEOID)
   
   if(any(grepl("summary_est", names(dat)))) {
@@ -24,6 +26,12 @@ process_acs <- function(dat) {
       mutate(pct = estimate / summary_est) %>% 
       select(census_fips, variable, pct) %>% 
       spread(variable, pct)
+    
+  } else if(any(grepl("pop_density", names(dat)))) {
+    # for pop density
+    dat %>% 
+      mutate(pop_density = as.numeric(pop_density)) %>% 
+      select(census_fips, pop_density)
     
   } else {
     # for income
@@ -138,11 +146,43 @@ vf <- vf %>%
   left_join(hispanic, by = "census_fips") %>% 
   left_join(population, by = "census_fips")
 
+# impute missing income, race, and educ data because of fips
+# want to use income change in the final model, will use more recent
+# versions of others
+
+missing_inc <- is.na(vf$med_hh_inc) # those missing 13 acs data
+inc_model <- lm(med_hh_inc ~ ac_medianhhincome, data = vf[!missing_inc, ])
+vf[missing_inc, "med_hh_inc"] <- predict(inc_model, vf[missing_inc, ])
+
+missing_hispanic <- is.na(vf$hispanic)
+race_model <- lm(hispanic ~ ac_pcthispaniclatino, data = vf[!missing_hispanic, ])
+vf[missing_hispanic, "hispanic"] <- predict(race_model, vf[missing_hispanic, ])
+
+missing_educ <- is.na(vf$less_than_hsg)
+lthsg_model <- lm(less_than_hsg ~ ac_pctgraduatedegree, data = vf[!missing_educ, ])
+vf[missing_educ, "less_than_hsg"] <- predict(lthsg_model, vf[missing_educ, ])
+
+hsg_model <- lm(hsg ~ ac_pctgraduatedegree, data = vf[!missing_educ, ])
+vf[missing_educ, "hsg"] <- predict(hsg_model, vf[missing_educ, ])
+
+
+# impute missing pop desnity: median of district (long right tail)
+
+vf <- vf %>% 
+  group_by(district) %>% 
+  mutate(
+    pop_density = case_when(
+      is.na(pop_density) ~ median(pop_density, na.rm = TRUE),
+      TRUE ~ pop_density
+    )
+  ) %>% 
+  ungroup()
 
 # transfrm some variables
 
 vf <- vf %>% 
   mutate(
+    log_density = log(pop_density), 
     inc_change = med_hh_inc - ac_medianhhincome,
     party = case_when(
       ca_partyaffiliation == "DEM" ~ "DEM",
@@ -151,11 +191,24 @@ vf <- vf %>%
       TRUE ~ "other"
     ),
     dem = if_else(party == "DEM", 1L, 0L),
-    tract_hispanic_times_inc = hispanic * med_hh_inc,
+    rep = if_else(party == "REP", 1L, 0L),
     tract_pct_hsg_or_less = less_than_hsg + hsg,
     dist03 = if_else(district == "03", 1L, 0L),
     ca_white = if_else(ca_race == "C", 1L, 0L),
-    ca_male = if_else(ca_gender == "M", 1L, 0L)
+    ca_male = if_else(ca_gender == "M", 1L, 0L),
+    hh_strong_d = case_when(
+      hh_partisanbehave == "D" ~ 1L,
+      TRUE ~ 0L
+    ),
+    hh_strong_r = case_when(
+      hh_partisanbehave == "R" | hh_partisanbehave == "RO" ~ 1L,
+      TRUE ~ 0L
+    ),
+    gender_match = case_when(
+      district == "03" & ca_gender == "F" ~ 1L,
+      district == "11" & ca_gender == "M" ~ 1L,
+      TRUE ~ 0L
+    )
   ) %>% 
   rename(tract_pct_hispanic = hispanic)
 
@@ -164,14 +217,15 @@ vf <- vf %>%
 # merge thsoe we have repsones from for modeling
 model_dat <- inner_join(resp, vf, by = c("state", "test_id", "district")) %>% 
   mutate(
-    recall_prob = case_when(
-      recall_vote == "Yes" ~ 0,
-      recall_vote == "No" ~ 1,
-      recall_vote == "DK" ~ 0.5
-    ),
     recall_binary = case_when(
       recall_vote == "DK" ~ NA_integer_,
-      TRUE ~ as.integer(recall_prob)
+      recall_vote == "Yes" ~ 0L,
+      recall_vote == "No" ~ 1L
+    ),
+    recall_prob = case_when(
+      recall_vote == "DK" ~ -.5,
+      recall_vote == "Yes" ~ 0,
+      recall_vote == "No" ~ 1
     )
   )
 

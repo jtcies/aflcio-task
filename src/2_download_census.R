@@ -6,7 +6,7 @@ library(units)
 # and income
 
 # functions ----------------
-download_acs <- function(vars, summary = NULL, geo, geometry = FALSE) {
+download_acs <- function(vars, summary = NULL, geo, geometry = TRUE) {
   get_acs(
     year = 2013,
     state = "CO", 
@@ -95,7 +95,13 @@ white_educ_female <- download_acs(
 
 white_educ_county <- bind_rows(white_educ_male, white_educ_female)
 
-pop_tract <- download_acs(total_pop, geo = "tract", geometry = FALSE)
+pop_tract <- download_acs(total_pop, geo = "tract", geometry = TRUE)
+
+# determine population density for each census tract
+
+pop_tract$area <- set_units(st_area(pop_tract$geometry), "km^2")
+
+pop_tract$pop_density <- pop_tract$estimate / pop_tract$area
 
 # write ------------------------
 # list the data frames and write recursively

@@ -89,10 +89,10 @@ qplot(vf$sy_voteprop2012, binwidth = 1)
 ### ACS
 
 ```{r, message = FALSE, warning = FALSE}
-
-train %>% 
-  select(53:68) %>% 
-  ggpairs()
+# 
+# train %>% 
+#   select(53:68) %>% 
+#   ggpairs()
 ```
 
 ## household
@@ -127,7 +127,8 @@ Plotting some of the relationships
 ```{r}
 num_plots <- train %>% 
   select_if(is.numeric) %>% 
-  select(-starts_with("ac"), -1, -3, -5, -6, -recall_binary) %>% 
+  select(-starts_with("ac"), -1, -3, -5, -6, -recall_binary,
+         -di_statehousedistrict) %>% 
   mutate(log_density = log(pop_density))
 
 correlations <- cor(num_plots, use = "pairwise.complete.obs")
@@ -153,8 +154,7 @@ state house district has a strong relationship with race
 ```{r}
 
 pca_comp <- num_plots %>% 
-  select(-recall_prob) %>% 
-  filter(!is.na(hh_children), !is.na(bach_or_higher))
+  filter(!is.na(hh_children), !is.na(bach_or_higher), !is.na(log_density))
 
 dat_pca <- prcomp(pca_comp, center = TRUE, scale. = TRUE)
 
@@ -194,7 +194,4 @@ tidied_pca %>%
     coord_flip()
 ```
 
-```{r}
-
-```
 
