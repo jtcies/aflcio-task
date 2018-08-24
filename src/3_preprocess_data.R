@@ -16,8 +16,6 @@ source(here::here("src/helper_funs.R"))
 process_acs <- function(dat) {
   
   dat <- dat %>% 
-    st_set_geometry(NULL) %>% 
-    as_data_frame() %>% 
     rename(census_fips = GEOID)
   
   if(any(grepl("summary_est", names(dat)))) {
@@ -26,12 +24,6 @@ process_acs <- function(dat) {
       mutate(pct = estimate / summary_est) %>% 
       select(census_fips, variable, pct) %>% 
       spread(variable, pct)
-    
-  } else if(any(grepl("pop_density", names(dat)))) {
-    # for pop density
-    dat %>% 
-      mutate(pop_density = as.numeric(pop_density)) %>% 
-      select(census_fips, pop_density)
     
   } else {
     # for income
@@ -90,64 +82,82 @@ vf <- vf %>%
 # add in acs data
 educ <- process_acs(educ_tract)
 race <- process_acs(race_tract)
+hispanic <- process_acs(hispanic_tract)
 income <- process_acs(income_tract)
 population <- process_acs(pop_tract)
 
 
+
+# find a matching fips for those that miss it based on acs data 
+# already in the vf
+complete_fips <- vf %>% 
+  select(census_fips, starts_with("ac")) %>% 
+  filter(nchar(census_fips) == 11) %>% 
+  distinct()
+
+unknown_fips <- vf %>%   
+  filter(nchar(census_fips) < 11) %>% 
+  select(starts_with("ac")) %>% 
+  distinct()
+
+# there are only two sets of unique ac data for the missing fips
+# find the fips that match on all ac vars 
+replacement_fips <- complete_fips %>% 
+  semi_join(unknown_fips) %>% # using all ac variables
+  count(census_fips, sort = TRUE) %>% 
+  # those that only matched on set of vars
+  filter(n == 1) %>% 
+  left_join(complete_fips %>% select(census_fips, ac_pctwhite)) %>% 
+  filter(ac_pctwhite %in% unknown_fips$ac_pctwhite) %>% 
+  distinct(ac_pctwhite, .keep_all = TRUE) 
+
+# merge in replacements and coalesce
+replacement_fips_all_vars <- complete_fips %>% 
+  filter(census_fips %in% replacement_fips$census_fips,
+         ac_pctwhite %in% replacement_fips$ac_pctwhite) %>% 
+  distinct(census_fips, .keep_all = TRUE)
+
+join_vars <- names(replacement_fips_all_vars[-1])
+
+vf <- vf %>% 
+  # merge on acs data
+  left_join(replacement_fips_all_vars, by = c(join_vars)) %>% 
+  mutate(
+    census_fips.x = if_else(
+      nchar(census_fips.x) < 11, NA_character_, census_fips.x
+    ),
+    census_fips = coalesce(census_fips.x, census_fips.y)
+  ) %>% 
+  select(-ends_with('x'), -ends_with(".y"))
+
+# join in cnesus data
 vf <- vf %>% 
   left_join(educ, by = "census_fips") %>% 
   left_join(race, by = "census_fips") %>% 
   left_join(income, by = "census_fips") %>% 
+  left_join(hispanic, by = "census_fips") %>% 
   left_join(population, by = "census_fips")
 
-# impute missing income, race, and educ data because of fips
-# want to use income change in the final model, will use more recent
-# versions of others
-
-missing_fips <- is.na(vf$med_hh_inc) # those missing 13 acs data
-
-acs_data <- vf %>% 
-  select(census_fips, ac_medianhhincome, med_hh_inc, white, ac_pctwhite,
-         less_than_hsg, ac_pctgraduatedegree) %>% 
-  filter(!is.na(med_hh_inc)) %>% 
-  distinct()
-
-inc_model <- lm(med_hh_inc ~ ac_medianhhincome, data = acs_data)
-
-race_model <- lm(white ~ ac_pctwhite, data = acs_data)
-
-educ_model <- lm(less_than_hsg ~ ac_pctgraduatedegree, data = acs_data)
-
-vf[missing_fips, "med_hh_inc"] <- predict(inc_model, vf[missing_fips, ])
-
-vf[missing_fips, "white"] <- predict(race_model, vf[missing_fips, ])
-
-vf[missing_fips, "less_than_hsg"] <- predict(educ_model, vf[missing_fips, ])
-
-# impute missing pop desnity: median of district (long right tail)
-
-vf <- vf %>% 
-  group_by(district) %>% 
-  mutate(
-    pop_density = case_when(
-      is.na(pop_density) ~ median(pop_density, na.rm = TRUE),
-      TRUE ~ pop_density
-    )
-  ) %>% 
-  ungroup()
 
 # transfrm some variables
 
 vf <- vf %>% 
   mutate(
     inc_change = med_hh_inc - ac_medianhhincome,
-    log_density = log(pop_density),
     party = case_when(
       ca_partyaffiliation == "DEM" ~ "DEM",
       ca_partyaffiliation == "REP" ~ "REP",
+      ca_partyaffiliation == "NPA" ~ "none",
       TRUE ~ "other"
-    )
-  )
+    ),
+    dem = if_else(party == "DEM", 1L, 0L),
+    tract_hispanic_times_inc = hispanic * med_hh_inc,
+    tract_pct_hsg_or_less = less_than_hsg + hsg,
+    dist03 = if_else(district == "03", 1L, 0L),
+    ca_white = if_else(ca_race == "C", 1L, 0L),
+    ca_male = if_else(ca_gender == "M", 1L, 0L)
+  ) %>% 
+  rename(tract_pct_hispanic = hispanic)
 
 # create modeling data  ----------------------
 

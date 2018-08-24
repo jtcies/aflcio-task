@@ -6,11 +6,11 @@ library(units)
 # and income
 
 # functions ----------------
-download_acs <- function(vars, summary = NULL, geo, geometry = TRUE) {
+download_acs <- function(vars, summary = NULL, geo, geometry = FALSE) {
   get_acs(
     year = 2013,
     state = "CO", 
-    geography = geo,
+    geography = "tract",
     variables = vars,
     summary_var = summary,
     geometry = geometry
@@ -26,11 +26,14 @@ race_vars <- c(
   asian = "B02001_005",
   pacific_islander = "B02001_006",
   other_race = "B02001_007",
-  two_or_more_races = "B02001_008",
-  hispanic = "B03001_002"
+  two_or_more_races = "B02001_008"
 )
   
 race_summary <- "B02001_001"
+
+hispanic_var <- c(hispanic = "B03001_002")
+
+hispanic_summary <- "B03001_001"
 
 educ_vars <- c(
   less_than_hsg = "B16010_002",
@@ -71,6 +74,8 @@ total_pop <- "B00001_001"
 
 race_tract <- download_acs(race_vars, race_summary, "tract")
 race_county <-  download_acs(race_vars, race_summary, "county")
+hispanic_tract <- download_acs(hispanic_var, hispanic_summary, "tract")
+hispanic_county <- download_acs(hispanic_var, hispanic_summary, "county")
 
 educ_tract <- download_acs(educ_vars, educ_summary, "tract")
 educ_county <- download_acs(educ_vars, educ_summary, "county")
@@ -90,13 +95,7 @@ white_educ_female <- download_acs(
 
 white_educ_county <- bind_rows(white_educ_male, white_educ_female)
 
-pop_tract <- download_acs(total_pop, geo = "tract")
-
-# determine population density for each census tract
-
-pop_tract$area <- set_units(st_area(pop_tract$geometry), "km^2")
-
-pop_tract$pop_density <- pop_tract$estimate / pop_tract$area
+pop_tract <- download_acs(total_pop, geo = "tract", geometry = FALSE)
 
 # write ------------------------
 # list the data frames and write recursively

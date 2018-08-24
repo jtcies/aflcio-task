@@ -9,6 +9,7 @@ library(corrplot)
 library(ggbiplot)
 library(broom)
 library(tidyverse)
+library(GGally)
 
 vf <- read_csv(here::here("data/processed/voterfile_combined.csv"))
 train <- read_csv(here::here("data/processed/training_data.csv"))
@@ -84,6 +85,19 @@ qplot(vf$sy_gunscore, binwidth = .01)
 ```{r}
 qplot(vf$sy_voteprop2012, binwidth = 1)
 ```
+
+### ACS
+
+```{r, message = FALSE, warning = FALSE}
+
+train %>% 
+  select(53:68) %>% 
+  ggpairs()
+```
+
+## household
+
+
 
 ## comparing demos to outcome
 

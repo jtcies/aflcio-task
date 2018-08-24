@@ -27,6 +27,7 @@
       - want to make sure that we don't miss anyone who could oppose recall and we don't
 - issues
   - will need to impute some of the 2013 census data because fips is missing in the voterfile
+  - substantially changes census [tracts](1)
 
 ## Products
 
@@ -38,3 +39,5 @@
 
 - can't get presidential approval ratings, but would incorporate polling that included that information into final model
 - incorporate voter likelihood into the model
+
+[1]: https://geodatavision.com/sites/geodatavision.com/files/cra-hmda-news/SubstantiallyChangedTractsNationalReport.pdf
