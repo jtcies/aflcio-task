@@ -1,16 +1,17 @@
 library(tidyverse)
 library(tidycensus)
 library(units)
+library(sf)
 
 # download data from the acs 2013 5-year estimates for race, education,
 # and income
 
 # functions ----------------
-download_acs <- function(vars, summary = NULL, geo, geometry = TRUE) {
+download_acs <- function(vars, summary = NULL, geo, geometry = FALSE) {
   get_acs(
     year = 2013,
     state = "CO", 
-    geography = "tract",
+    geography = geo,
     variables = vars,
     summary_var = summary,
     geometry = geometry
@@ -48,7 +49,7 @@ educ_summary <- "B16010_001"
 
 male_educ_vars <- c(
   less_than_hsg = "C15002A_003",
-  hsg_male = "C15002A_004",
+  hsg = "C15002A_004",
   some_college = "C15002A_005",
   bach_or_higher = "C15002A_006"
 )
@@ -57,7 +58,7 @@ white_male_summary <- "C15002A_002"
 
 female_educ_vars <- c(
   less_than_hsg = "C15002A_008",
-  hsg_male = "C15002A_009",
+  hsg = "C15002A_009",
   some_college = "C15002A_010",
   bach_or_higher = "C15002A_011"
 ) 

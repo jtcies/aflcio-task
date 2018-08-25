@@ -3,69 +3,126 @@ title: "Memo"
 author: "Joe Ciesielski"
 date: "8/21/2018"
 output:
-  pdf_document: 
-    latex_engine: xelatex
-    sansfont: Open Sans
   html_document: 
     css: ../src/jtc_style.css
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE,
+                      fig.align = "center")
 
 library(tidyverse)
 library(here)
 library(tidycensus)
+library(viridis)
+library(broom)
+library(huxtable)
+library(mapview)
+library(leaflet)
+
+options(tigrid_use_cache = TRUE)
 source(here::here("src/helper_funs.R"))
 source(here::here("src/jtc_theme.R"))
 
-vf <- read_csv(here::here("data/processed/voterfile_combined.R"))
+vf <- read_csv(here::here("data/processed/voterfile_combined.csv"))
 model <- read_rds(here::here("models/model.rds"))
+naive_model <- read_rds(here::here("models/naive_model.rds"))
 test <- read_csv(here::here("data/processed/testing_data.csv"))
-resp <- read_csv(here::here("data/processed/all_repsonses.csv"))
+resp <- read_csv(here::here("data/processed/all_responses.csv"))
+white_educ_county <- read_rds(here::here("data/acs/white_educ_county.rds"))
 
 # get geometry for mapping
-tract_geom <- get_acs("tract", state = "CO", geometry = TRUE, year = 2009) %>% 
+tract_geom <- get_decennial(
+  geography = "tract",
+  table = "P1",
+  state = "CO",
+  geometry = TRUE, 
+  year = 2000,
+  cache_table = TRUE
+) %>% 
   rename(census_fips = GEOID)
 
-optimal_cutoff <- 0.5
+# getting optimal cutoff
+test_actual <- test %>% 
+  filter(!is.na(recall_binary))
 
+roc_dat <- roc_plot(
+  test_actual$recall_binary, 
+  predict(model, test_actual, "response")
+)
+
+optimal_cutoff <- roc_dat[[3]]$cutoff[which.max(roc_dat[[3]]$f1)]
+
+# applying cutoff
 vf <- left_join(vf, resp, by = c("state", "test_id")) %>% 
   mutate(
-    recall_oppose_prob = predict(model, ., "prob")[, 2],
+    recall_oppose_prob = predict(model, vf, "response"),
+    # use correct score for those for whome we have data
     recall_oppose_prob = case_when(
-      recall_vote == "Yes" ~ 0L,
-      reall_vote == "No" ~ 1L,
-      TRUE ~ recall_predict
+      recall_vote == "Yes" ~ 0,
+      recall_vote == "No" ~ 1,
+      TRUE ~ recall_oppose_prob
     ),
     recall_predict = if_else(recall_oppose_prob >= optimal_cutoff, 1L, 0L)
   )
 
+voter_score <- vf %>% 
+  select(state, test_id, recall_oppose_prob)
+
+write_csv(voter_score, here::here("output/recall_opposition_probability.csv"))
+
+
 ```
 
-## Purpose
+## Introduction
 
 In 2013, two state senators from Colorado were put up for a vote after a series of gun reform legislation. The purpose of this excercise was to predict voter behavior in that recall vote. 
 
+All of the code for this project can be found at this [Github](1) repository. 
+
 ## Background and literature
 
-
-
 ### The recall
+
+Angela Giron (District 3) and John Morse (District 11) were the two state seantors ulimtately put up for a recall vote, althought it was attempted in other district. Giron had been in office just since 2010, while Morse was initially elected in 2007. The recall was largely motivated by Republicans angry at the passes of three gun control bills. These bills [bills](2) were: 
+  - House Bill 13-224 restricts the magazine size allowed or manufactured in the state.
+  - House Bill 13-228 requires the Colorado Bureau of Investigation to recoup costs related to background checks and creating a legislative appropriation for such costs.
+  - House Bill 13-229 enforces background checks for the transfer of a firearm between two private individuals.
+
+Other bills other [bills](3) including one that would assign liability for assault weapons crimes to manafacturers were killed before being put up for a vote. 
+
+Ulimately both senators were recalled. Giron lost by 12 points, a margin much higher than expected. Morse lost by just two points. 
 
 ### Literature
 
 Fundamental election models are those that use data other than direct polling to predict the outcome of the elections. Fundamental models are analogous to the kind of model that we will build in this situation. In our case, the polling data will represent our outcome variable, whether or not someone opposes the recall. The only data availabe as inputs to our model are demographics of individuals, housholds, and neighborhoods. 
 
-Fundamental models can be comparable to those that rely on polling data. These models are most accurate in forecasting elections when they incorporate economic trends, biographical information about the candidate, and general feelings toward the sitting president. Specifically, state income growth, the previous electoral experience of a candidate, and presidential approval ratings are all statistically significant when predicting the outcome of elections for U.S. Seante at the state level. 
+Fundamental models can be comparable to those that rely on polling data. These models are most accurate in forecasting elections when they incorporate economic trends, biographical information about the candidate, and general feelings toward the sitting president. Specifically, state income growth, the previous electoral experience of a candidate, and presidential approval ratings are all statistically significant when predicting the outcome of elections for U.S. Seante at the state level.[^1]
 
-Because the elections here are primarily motivated by gun reform legislation, it  is helpful to examien factors which influence attitudes toward gun reform. Research from Pew in 2013 found, unsurprisingly, that views on guns and gun reform split sharply across party lines and gun ownership. O'Brien et al. alos found that views on race significantly predicted stances on gun reform. 
+Because the elections here are primarily motivated by gun reform legislation, it  is helpful to examien factors which influence attitudes toward gun reform. Research from Pew in 2013 [^2] found, unsurprisingly, that views on guns and gun reform split sharply across party lines and gun ownership. O'Brien et al. [^3] also found that views on race significantly predicted stances on gun reform.
 
 ## Model
 
+A logisitc regression model offered the best performance in predicting opposition to the recalls. More details about the model and methodology can be found in appendix B. 
+
 ```{r}
 
+tract_summary <- vf %>% 
+  group_by(census_fips) %>% 
+  summarise(
+    total = n(),
+    oppose = sum(recall_predict)
+  ) %>% 
+  mutate(
+    pct_opposing = round(oppose / total, 3)
+  )
 
+tract_map <- tract_geom %>% 
+  left_join(tract_summary, by = "census_fips")
+
+tract_map <- mapview(tract_map, zcol = "pct_opposing", legend = TRUE)
+tract_map
 
 ```
 
@@ -78,9 +135,9 @@ Inital principal componnent analysis and visual exploration of the data indicate
 #### Individual characteristics
 
 - age (ca_age)
-- race (ca_age)
+- dummy variable for voter is white (ca_white)
 - modeled probability of progressive belefs (sy_ideologymodeldem) 
-- dummy variables for Repubican or Democrat (rep, dem)
+- party (republican, democrat, or other)
 - any individual or household membership with AFL-CIO (afl_mem)
 - whether the indidivdual's gender matched the gender of the candidate up for recall (gender_match)
 - modeled probability of gun ownership (sy_gunscore)
@@ -97,29 +154,267 @@ Inital principal componnent analysis and visual exploration of the data indicate
 - percent of census tract residents who are Hispanic or Latino (tract_pct_hispanic)
 - dummy variable for state senate district (dist03)
 
-The chart below shows the relative importance of each of the varibles in calculting the final probability that a voter will oppose the election.
+The chart below shows the regression table for the model. Only age, ideology, and a dummy varaible indiciating a Re are statistically significant at the .05 level. 
 
 ```{r}
-ggplot(varImp(model))
+tidy(model) %>% 
+  arrange(desc(term == "(Intercept)"), -p.value) %>% 
+  as_hux() %>% 
+  add_colnames() %>% 
+  theme_article()
 ```
-
 
 ### Model performance
 
+#### ROC plot for model
+
 ```{r}
-roc_plot(test$recall_binary, predict(model, test, "prob"))[[1]]
+
+roc_dat[[1]]
+
 ```
 
-The chart above shows an receiver operating characteristic (ROC) plot comparing our model to vote probabilities based soley on party affiliation. 
+The chart above shows an receiver operating characteristic (ROC) plot for our model and is labeled with the area under the curve (AUC). ROC plots show the the ability of models to successfully classify an outcome at different thresholds. The greater the area under the curve, the more successful the model. 
 
+```{r}
+
+test_pred <- predict(model, test_actual, "response")
+test_pred[test_pred >= optimal_cutoff] <- 1
+test_pred[test_pred < optimal_cutoff] <- 0
+
+data.frame(
+  actual = ifelse(test_actual$recall_binary == 1, "oppose", "support"),
+  predicted = ifelse(test_pred == 1, "oppose", "support")
+) %>% 
+  group_by(actual, predicted) %>% 
+  count() %>% 
+  spread(actual, n) %>%  
+  as_hux() %>% 
+  add_colnames() %>%
+  theme_article()
+
+```
+
+This chart above shows the confusion matrix of predicted and actual opposition to the recall. This confusion matrix is based on a cutoff of `r optimal_cutoff` which was determined by maximizing F1 score. This cutoff allows for more  Depending on the final use of the model, this cutoff can be adjusted to weight more heavily either precision or accuracy. 
+
+### Comparing to a party-only model
+
+#### ROC Plot for naive model
+```{r}
+
+naive_roc <- roc_plot(
+  test_actual$recall_binary, 
+  predict(naive_model, test_actual, "response")
+)
+
+naive_cutoff <- naive_roc[[3]]$cutoff[which.max(naive_roc[[3]]$f1)]
+
+naive_roc[[1]]
+
+```
+
+The chart above shows the same ROC curve for a model that uses the party variable as its only input. 
+
+```{r}
+naive_pred <- predict(naive_model, test_actual, "response")
+naive_pred[naive_pred >= naive_cutoff] <- 1
+naive_pred[naive_pred < naive_cutoff] <- 0
+
+data.frame(
+  actual = ifelse(test_actual$recall_binary == 1, "oppose", "support"),
+  predicted = ifelse(naive_pred == 1, "oppose", "support")
+) %>% 
+  group_by(actual, predicted) %>% 
+  count() %>% 
+  spread(actual, n) %>%  
+  as_hux() %>% 
+  add_colnames() %>% 
+  theme_article()
+```
+
+Above is the confusion matrix for the naive model. The optimal cutoff for this naive model was determined to be `r naive_cutoff`.
 
 ## Conclusion and next steps
 
 There are number of ways that this model could be improved. 
 
-## Appendix A: White Education Data by County (with code)
+## Appendix A:Education Data for white residents by county (with code)
 
-## Appendix B: Methodology and model metrics
+```{r eval = FALSE, echo=TRUE}
 
-- using 2009 census tracts
-- optimal cutoff score
+library(tidyverse)
+library(tidycensus)
+library(units)
+
+# download data from the acs 2013 5-year estimates for race, education,
+# and income
+
+# function ----------------
+download_acs <- function(vars, summary = NULL, geo, geometry = TRUE) {
+  get_acs(
+    year = 2013,
+    state = "CO", 
+    geography = geo,
+    variables = vars,
+    summary_var = summary,
+    geometry = geometry
+  )
+}
+
+# because of the way the tables are divided, need to download gender separately
+male_educ_vars <- c(
+  less_than_hsg = "C15002A_003",
+  hsg = "C15002A_004",
+  some_college = "C15002A_005",
+  bach_or_higher = "C15002A_006"
+)
+
+white_male_summary <- "C15002A_002"
+
+female_educ_vars <- c(
+  less_than_hsg = "C15002A_008",
+  hsg = "C15002A_009",
+  some_college = "C15002A_010",
+  bach_or_higher = "C15002A_011"
+) 
+
+white_female_summary <- "C15002A_007"
+
+white_educ_male <- download_acs(
+  male_educ_vars, white_male_summary, "county", geometry = FALSE
+) %>% 
+  mutate(gender = "male")
+
+white_educ_female <- download_acs(
+  female_educ_vars, white_female_summary, "county", geometry = FALSE
+) %>% 
+  mutate(gender = "female")
+
+white_educ_county <- bind_rows(white_educ_male, white_educ_female)
+
+```
+
+```{r echo= TRUE}
+
+white_educ_county %>% 
+  filter(grepl("El Paso|Pueblo", NAME)) %>% 
+  group_by(NAME, variable) %>% 
+  summarise(
+    estimate = sum(estimate),
+    summary_est = sum(summary_est)
+  ) %>% 
+  mutate(
+    pct = estimate / summary_est,
+    lab = paste0(round(pct * 100, 3), "% (", estimate, "/", summary_est, ")"),
+    variable = case_when(
+      variable == "bach_or_higher" ~ "bachelor's degree or higher",
+      variable == "hsg" ~ "high school graduate",
+      variable == "some_college" ~ "some college",
+      variable == "less_than_hsg" ~ "less than high school graduate"
+    )
+  ) %>% 
+  select(-pct, -estimate, -summary_est, `educational attainment` = variable) %>% 
+  spread(NAME, lab) %>% 
+  arrange(factor(`educational attainment`, 
+                 levels = c( 
+                   "less than high school graduate", 
+                   "high school graduate",
+                   "some college",
+                   "bachelor's degree or higher"
+                 ))) %>% 
+  as_hux() %>% 
+  add_colnames() %>% 
+  theme_article() %>% 
+  set_align(everywhere, 2:3, "right")
+  
+```
+
+
+## Appendix B: Methodology and modeling
+
+### Data cleaning
+
+A number of decisions were made in the data cleaning process that affected the final model. 
+
+Census tract information for many of the individuals in the voterfile was innacurate or incomplete. This meant that 2013 ACS data could not be merged in for those inviduals. 
+
+Using the complete data provided from the 2009 ACS, I was able to reconstruct the correct census FIPS code for a number of these individuals. However, it looks like the census FIPS code provided was based on the 2000 census. According to this [website](4), several census tracts changed substantially between the 2000 and 2010 census. Because the 2013 ACS data is based on the 2013 census tracts, data for those inviduals with the changed census tracts still did not merge in appropriately. 
+
+In order to correct for this, I create several simple linear models to impute the 2013 data based on the 2009 data. This was done for any of the variables which would be included in the For example, I predicted 2013 median household income based on 2009 median household income for anyone for whom the 2013 data was missing after the merge. However, the missing data accounted for approximately 25% of the individuals in the voterfile. In a real-world scenario, I would have conducted further investigation to into the missing data and explored more ways to get complete, accurate census FIPS codes for all individuals. 
+
+### Modeling
+
+To model the data, I first divided the full dataset into a training and test set. I built a number of different models including logistic regressions and decision tree based models such as random forests and extreme gradient boosting. However, the logistic regression model performed best on cross validation. 
+
+[^1]: Hummel, P., & Rothschild, D. (2014). Fundamental models for forecasting elections at the state level. Electoral Studies, 35, 123-139.
+[^2]: http://www.people-press.org/2013/03/12/why-own-a-gun-protection-is-now-top-reason/
+[^3]: O’Brien, K., Forrest, W., Lynott, D., & Daly, M. (2013). Racism, gun ownership and gun control: Biased attitudes in US whites may influence policy decisions. PloS one, 8(10), e77552.
+
+#### Code for modeling
+
+```{r echo = TRUE, eval = FALSE}
+
+library(readr)
+library(here)
+library(pROC)
+library(purrr)
+library(dplyr)
+library(ggplot2)
+library(broom)
+
+source(here::here("src/helper_funs.R"))
+
+train <- "data/processed/training_data.csv" %>% 
+  here::here() %>% 
+  read_csv() %>% 
+  filter(!is.na(recall_binary))
+  
+# train model
+model_params <- c(
+  # outcome
+  "recall_binary",
+  # personal characteristics
+  "ca_age", "sy_ideologymodel", "afl_mem",
+  "gender_match", "sy_gunscore", "ca_white", "party",
+  # home characteristics
+  "hh_white", "hh_ageavg", "hh_totalpersons", 
+  # neighborhood characteristics
+  "tract_pct_hsg_or_less", "dist03", "tract_pct_hispanic"
+)
+
+model <- glm(
+  factor(recall_binary) ~ .,
+  data = train[model_params],
+  family = "binomial"
+)
+
+# key metrics 
+model
+
+# preds_oppose <- predict(model, train, "prob")[, 2]
+preds_oppose <- predict(model, train, "response")
+roc_plot(train$recall_binary, preds_oppose)
+
+
+# naiive model based just on party
+naive_model <- glm(
+  factor(recall_binary) ~ party, 
+  data = train,
+  family = "binomial"
+)
+
+naive_pred <- predict(naive_model, train, "response")
+roc_plot(train$recall_binary, naive_pred)
+
+
+saveRDS(model, here::here("models/model.rds"))
+saveRDS(naive_model, here::here("models/naive_model.rds"))
+
+
+```
+
+
+[1]: https://github.com/jtcies/aflcio-task 
+[2]: https://ballotpedia.org/Angela_Giron_recall,_Colorado_State_Senate_(2013)
+[3]: https://www.denverpost.com/2013/03/08/gun-bills-2013-scorecard-of-measures-in-the-colorado-legislature/
+[4]: https://geodatavision.com/sites/geodatavision.com/files/cra-hmda-news/SubstantiallyChangedTractsNationalReport.pdf

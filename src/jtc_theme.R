@@ -5,7 +5,7 @@ jtc_colors <- c("#4f4f4f", "#6b7a8f", "#f7882f", "#F7C331", "#dcc7aa",
 
 jtc_theme <- define_palette(
   swatch = jtc_colors,
-  gradient = c(lower = jtc_colors[1L], upper = jtc_colors[2L]),
+  gradient = c(lower = jtc_colors[[2]], upper = jtc_colors[3]),
   text = c("#4f4f4f", "#6b7a8f"),
   background = "#f4f4f4")
 

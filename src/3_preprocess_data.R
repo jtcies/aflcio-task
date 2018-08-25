@@ -16,8 +16,6 @@ source(here::here("src/helper_funs.R"))
 process_acs <- function(dat) {
   
   dat <- dat %>% 
-    st_set_geometry(NULL) %>% 
-    as_data_frame() %>% 
     rename(census_fips = GEOID)
   
   if(any(grepl("summary_est", names(dat)))) {
@@ -30,6 +28,8 @@ process_acs <- function(dat) {
   } else if(any(grepl("pop_density", names(dat)))) {
     # for pop density
     dat %>% 
+      st_set_geometry(NULL) %>% 
+      as_data_frame() %>% 
       mutate(pop_density = as.numeric(pop_density)) %>% 
       select(census_fips, pop_density)
     
@@ -174,6 +174,13 @@ vf <- vf %>%
     pop_density = case_when(
       is.na(pop_density) ~ median(pop_density, na.rm = TRUE),
       TRUE ~ pop_density
+    ),
+    # impute missing hh age and ca_age
+    ca_age = if_else(
+      is.na(ca_age), median(ca_age, na.rm = TRUE), ca_age
+    ), 
+    hh_ageavg = if_else(
+      is.na(hh_ageavg), median(hh_ageavg, na.rm = TRUE), hh_ageavg
     )
   ) %>% 
   ungroup()
