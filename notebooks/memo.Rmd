@@ -1,7 +1,7 @@
 ---
 title: "Memo"
 author: "Joe Ciesielski"
-date: "8/21/2018"
+date: "8/24/2018"
 output:
   html_document: 
     css: ../src/jtc_style.css
@@ -77,34 +77,37 @@ write_csv(voter_score, here::here("output/recall_opposition_probability.csv"))
 
 ## Introduction
 
-In 2013, two state senators from Colorado were put up for a vote after a series of gun reform legislation. The purpose of this excercise was to predict voter behavior in that recall vote. 
+In 2013, two state senators from Colorado were put up for a vote after a series of gun reform legislation was passed. The goal of this project is to predict voter behavior in that recall vote. 
 
-All of the code for this project can be found at this [Github](1) repository. 
+I built a statistical model using the provided data along with data from the 2013 American Community Survey (ACS) 5-year estimate. This model predicts whether a voter will oppose the recall (vote keep to keep the legislator in office) or support (vote to remove).
+
+All of the code for this project can be found at this [Github][1] repository. 
 
 ## Background and literature
 
 ### The recall
 
-Angela Giron (District 3) and John Morse (District 11) were the two state seantors ulimtately put up for a recall vote, althought it was attempted in other district. Giron had been in office just since 2010, while Morse was initially elected in 2007. The recall was largely motivated by Republicans angry at the passes of three gun control bills. These bills [bills](2) were: 
+Angela Giron (District 3) and John Morse (District 11) were the two state senators ultimately put up for a recall vote, although advocates attempted to recall others. Giron had been in office since 2010, while Morse was initially elected in 2007. The recall was largely motivated by Republicans angry at the passes of three gun control bills. These bills [bills][2] were: 
+
   - House Bill 13-224 restricts the magazine size allowed or manufactured in the state.
   - House Bill 13-228 requires the Colorado Bureau of Investigation to recoup costs related to background checks and creating a legislative appropriation for such costs.
   - House Bill 13-229 enforces background checks for the transfer of a firearm between two private individuals.
 
-Other bills other [bills](3) including one that would assign liability for assault weapons crimes to manafacturers were killed before being put up for a vote. 
+Other bills other [bills][3] including one that would assign liability for assault weapons crimes to manufacturers were never made it to a vote. 
 
-Ulimately both senators were recalled. Giron lost by 12 points, a margin much higher than expected. Morse lost by just two points. 
+Ultimately both senators were recalled. Giron lost by 12 points, a margin much higher than expected. Morse lost by just two points. 
 
 ### Literature
 
-Fundamental election models are those that use data other than direct polling to predict the outcome of the elections. Fundamental models are analogous to the kind of model that we will build in this situation. In our case, the polling data will represent our outcome variable, whether or not someone opposes the recall. The only data availabe as inputs to our model are demographics of individuals, housholds, and neighborhoods. 
+Fundamental election models are those that use data other than direct polling to predict the outcome of elections. Fundamental models are analogous to the kind of model that we will build in this situation. In our case, the polling data will represent our outcome variable, whether or not someone opposes the recall. The only data available as inputs to our model are demographics of individuals, households, and neighborhoods. 
 
-Fundamental models can be comparable to those that rely on polling data. These models are most accurate in forecasting elections when they incorporate economic trends, biographical information about the candidate, and general feelings toward the sitting president. Specifically, state income growth, the previous electoral experience of a candidate, and presidential approval ratings are all statistically significant when predicting the outcome of elections for U.S. Seante at the state level.[^1]
+Fundamental models have been found to perform comparably to those that rely on polling data. These models are most accurate in forecasting elections when they incorporate economic trends, biographical information about the candidate, and general feelings toward the sitting president. Specifically, state income growth, the previous electoral experience of a candidate, and presidential approval ratings are all statistically significant when predicting the outcome of elections for U.S. Senate at the state level.[^1]
 
-Because the elections here are primarily motivated by gun reform legislation, it  is helpful to examien factors which influence attitudes toward gun reform. Research from Pew in 2013 [^2] found, unsurprisingly, that views on guns and gun reform split sharply across party lines and gun ownership. O'Brien et al. [^3] also found that views on race significantly predicted stances on gun reform.
+Because the elections here are primarily motivated by gun reform legislation, it  is helpful to examine factors which influence attitudes toward gun reform. Research from Pew in 2013 [^2] found, unsurprisingly, that views on guns and gun reform split sharply across party lines and gun ownership. O'Brien et al. [^3] also found that views on race significantly predicted stances on gun reform.
 
 ## Model
 
-A logisitc regression model offered the best performance in predicting opposition to the recalls. More details about the model and methodology can be found in appendix B. 
+A logistic regression model offered the best performance in predicting opposition to the recalls. More details about the model and methodology can be found in appendix B. 
 
 ```{r}
 
@@ -130,22 +133,22 @@ The map above shows the predicted share of voters who will oppose the recall by 
 
 ### Variables included
 
-Inital principal componnent analysis and visual exploration of the data indicated three priarmy sources of variation in the data: individual characteristics (such as age, gender, and part affiliation), household characteristics, and neighborhood characteristics. The following variables were included in the final model in an attempt to capture as much variation as possible without creating an overly complex model:
+Principal component analysis and visual exploration of the data indicated three primary sources of variation in the data: individual characteristics (such as age, gender, and part affiliation), household characteristics, and neighborhood characteristics. The following variables were included in the final model in an attempt to capture as much variation as possible without creating an overly complex model:
 
 #### Individual characteristics
 
 - age (ca_age)
 - dummy variable for voter is white (ca_white)
-- modeled probability of progressive belefs (sy_ideologymodeldem) 
+- modeled probability of progressive beliefs (sy_ideologymodeldem) 
 - party (republican, democrat, or other)
 - any individual or household membership with AFL-CIO (afl_mem)
-- whether the indidivdual's gender matched the gender of the candidate up for recall (gender_match)
+- whether the individual's gender matched the gender of the candidate up for recall (gender_match)
 - modeled probability of gun ownership (sy_gunscore)
 
 #### Household characteristics
 
 - number of white individuals in the household (hh_white)
-- average age of the householde (hh_ageavg) 
+- average age of the household (hh_ageavg) 
 - total persons living in the household (hh_totalpersons)
 
 #### Neighborhood characteristics
@@ -154,11 +157,11 @@ Inital principal componnent analysis and visual exploration of the data indicate
 - percent of census tract residents who are Hispanic or Latino (tract_pct_hispanic)
 - dummy variable for state senate district (dist03)
 
-The chart below shows the regression table for the model. Only age, ideology, and a dummy varaible indiciating a Re are statistically significant at the .05 level. 
+The chart below shows the regression table for the model. The following variables are statistically significant at the 0.05 level: ideology, age, party, and the percent of a census tract with a high school diploma or less. 
 
 ```{r}
 tidy(model) %>% 
-  arrange(desc(term == "(Intercept)"), -p.value) %>% 
+  arrange(desc(term == "(Intercept)"), p.value) %>% 
   as_hux() %>% 
   add_colnames() %>% 
   theme_article()
@@ -168,13 +171,15 @@ tidy(model) %>%
 
 #### ROC plot for model
 
+A testing dataset was separated prior to training the model. This guards against over fitting the model and indicates how the model might perform out in the field. The metrics below on based on how the model performed on that test set. 
+
 ```{r}
 
 roc_dat[[1]]
 
 ```
 
-The chart above shows an receiver operating characteristic (ROC) plot for our model and is labeled with the area under the curve (AUC). ROC plots show the the ability of models to successfully classify an outcome at different thresholds. The greater the area under the curve, the more successful the model. 
+The chart above shows a receiver operating characteristic (ROC) plot for our model and is labeled with the area under the curve (AUC). ROC plots show the the ability of models to successfully classify an outcome at different thresholds. The greater the area under the curve, the more successful the model. 
 
 ```{r}
 
@@ -188,16 +193,19 @@ data.frame(
 ) %>% 
   group_by(actual, predicted) %>% 
   count() %>% 
-  spread(actual, n) %>%  
+  spread(actual, n) %>%
+  rename(`oppose (actual)` = oppose, `support (actual)` = support) %>% 
   as_hux() %>% 
   add_colnames() %>%
   theme_article()
 
 ```
 
-This chart above shows the confusion matrix of predicted and actual opposition to the recall. This confusion matrix is based on a cutoff of `r optimal_cutoff` which was determined by maximizing F1 score. This cutoff allows for more  Depending on the final use of the model, this cutoff can be adjusted to weight more heavily either precision or accuracy. 
+The table above shows the confusion matrix of predicted and actual opposition to the recall. The cutoff for probability of opposing recalls was set at `r optimal_cutoff`. This cutoff was set to maximize F1 score and allows for more false positives than may be desirable depending on the final use of the model. If necessary, this cutoff can be adjusted to weight more heavily either precision or accuracy. 
 
 ### Comparing to a party-only model
+
+Another model was built that used only party affiliation to predict opposition to the recalls. This model was then applied to the same testing data. This comparison provides a baseline with which to evaluate our final model. 
 
 #### ROC Plot for naive model
 ```{r}
@@ -213,7 +221,7 @@ naive_roc[[1]]
 
 ```
 
-The chart above shows the same ROC curve for a model that uses the party variable as its only input. 
+The chart above shows the same ROC curve for the party-only model. The AUC for the party-only model is less than the AUC for the model that incorporates the full range of variables. 
 
 ```{r}
 naive_pred <- predict(naive_model, test_actual, "response")
@@ -227,6 +235,7 @@ data.frame(
   group_by(actual, predicted) %>% 
   count() %>% 
   spread(actual, n) %>%  
+  rename(`oppose (actual)` = oppose, `support (actual)` = support) %>%
   as_hux() %>% 
   add_colnames() %>% 
   theme_article()
@@ -236,7 +245,9 @@ Above is the confusion matrix for the naive model. The optimal cutoff for this n
 
 ## Conclusion and next steps
 
-There are number of ways that this model could be improved. 
+There are number of ways that I would explore to improve this model. First would be to incorporate additional polling data either at the individual or neighborhood level. Attitudes toward the current president have been proven to be helpful in predicting voter behavior. Additionally, feelings about gun reform may have some correlation with views on race. Local polling data regarding these questions was not available to build this model, but may be useful in conducting similar analyses in the future. 
+
+One scenario where a model such as this could be put to use is in attempting to increase voter turnout. If the model were to be used to make decisions about which individuals might need a nudge to turn out to the polls, it would be important to incorporate information about the likelihood that a resident will vote into the model as well. 
 
 ## Appendix A:Education Data for white residents by county (with code)
 
@@ -305,7 +316,7 @@ white_educ_county %>%
   ) %>% 
   mutate(
     pct = estimate / summary_est,
-    lab = paste0(round(pct * 100, 3), "% (", estimate, "/", summary_est, ")"),
+    lab = paste0(round(pct * 100, 1), "% (", estimate, ")"),
     variable = case_when(
       variable == "bach_or_higher" ~ "bachelor's degree or higher",
       variable == "hsg" ~ "high school graduate",
@@ -321,7 +332,8 @@ white_educ_county %>%
                    "high school graduate",
                    "some college",
                    "bachelor's degree or higher"
-                 ))) %>% 
+                 )
+  )) %>% 
   as_hux() %>% 
   add_colnames() %>% 
   theme_article() %>% 
@@ -336,11 +348,13 @@ white_educ_county %>%
 
 A number of decisions were made in the data cleaning process that affected the final model. 
 
-Census tract information for many of the individuals in the voterfile was innacurate or incomplete. This meant that 2013 ACS data could not be merged in for those inviduals. 
+Census tract information for many of the individuals in the voterfile was inaccurate or incomplete. This meant that 2013 ACS data could not be merged in for those individuals. 
 
-Using the complete data provided from the 2009 ACS, I was able to reconstruct the correct census FIPS code for a number of these individuals. However, it looks like the census FIPS code provided was based on the 2000 census. According to this [website](4), several census tracts changed substantially between the 2000 and 2010 census. Because the 2013 ACS data is based on the 2013 census tracts, data for those inviduals with the changed census tracts still did not merge in appropriately. 
+Using the complete data provided from the 2009 ACS, I was able to reconstruct the correct census FIPS code for a number of these individuals. However, it looks like the census FIPS code provided was based on the 2000 census. According to this [website][4], several census tracts changed substantially between the 2000 and 2010 census. Because the 2013 ACS data is based on the 2013 census tracts, data for those individuals with the changed census tracts still did not merge in appropriately. 
 
-In order to correct for this, I create several simple linear models to impute the 2013 data based on the 2009 data. This was done for any of the variables which would be included in the For example, I predicted 2013 median household income based on 2009 median household income for anyone for whom the 2013 data was missing after the merge. However, the missing data accounted for approximately 25% of the individuals in the voterfile. In a real-world scenario, I would have conducted further investigation to into the missing data and explored more ways to get complete, accurate census FIPS codes for all individuals. 
+In order to correct for this, I created several simple linear models to impute the 2013 data based on the 2009 data. This was done for any of the variables which would be included in the For example, I predicted 2013 median household income based on 2009 median household income for anyone for whom the 2013 data was missing after the merge. However, the missing data accounted for approximately 25% of the individuals in the voterfile. In a real-world scenario, I would have conducted further investigation to into the missing data and explored more ways to get complete, accurate census FIPS codes for all individuals. 
+
+I also needed to determine how to incorporate those who responded "don't know" to the polls. Ultimately, I decided to leave those responses out and model the opposition to recall as a binary: 1 for opposing, 0 for favoring. I built a few models that classified voters into one of three outcomes (i.e. oppose, favor, or unsure), but the additional category hurt model performance. This information could be potentially useful and I would explore the possibility of incorporating it depending on the final use of the model. 
 
 ### Modeling
 
@@ -350,7 +364,9 @@ To model the data, I first divided the full dataset into a training and test set
 [^2]: http://www.people-press.org/2013/03/12/why-own-a-gun-protection-is-now-top-reason/
 [^3]: O’Brien, K., Forrest, W., Lynott, D., & Daly, M. (2013). Racism, gun ownership and gun control: Biased attitudes in US whites may influence policy decisions. PloS one, 8(10), e77552.
 
-#### Code for modeling
+#### Code and final results for modeling
+
+The final score predicting probability of opposing recalls for each individual in the voterfiles can be found [here][5]. The score is calculated using the model train in the code below, except if the voter responded "yes" or "no" to the polling question; in that case, they are given a score of 0 or 1 respectively. 
 
 ```{r echo = TRUE, eval = FALSE}
 
@@ -406,11 +422,8 @@ naive_model <- glm(
 naive_pred <- predict(naive_model, train, "response")
 roc_plot(train$recall_binary, naive_pred)
 
-
 saveRDS(model, here::here("models/model.rds"))
 saveRDS(naive_model, here::here("models/naive_model.rds"))
-
-
 ```
 
 
@@ -418,3 +431,4 @@ saveRDS(naive_model, here::here("models/naive_model.rds"))
 [2]: https://ballotpedia.org/Angela_Giron_recall,_Colorado_State_Senate_(2013)
 [3]: https://www.denverpost.com/2013/03/08/gun-bills-2013-scorecard-of-measures-in-the-colorado-legislature/
 [4]: https://geodatavision.com/sites/geodatavision.com/files/cra-hmda-news/SubstantiallyChangedTractsNationalReport.pdf
+[5]: https://github.com/jtcies/aflcio-task/blob/master/output/recall_opposition_probability.csv 
